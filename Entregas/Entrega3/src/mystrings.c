@@ -129,7 +129,7 @@ void mystrings(int fdin, int fdout, char *buf, int size, int length)
     ssize_t num_read, num_written;
     char *buf_salida = NULL;
     char *buf_aux = NULL;
-    int contador = -1, posicion = 0;
+    int contador = 0, posicion = 0;
     bool candidato = false;
 
     /* Reserva memoria dinámica para buffer de lectura */
@@ -148,7 +148,7 @@ void mystrings(int fdin, int fdout, char *buf, int size, int length)
     {
         for (int i = 0; i < num_read; i++)
         {
-            if(isprint(buf[i])){
+            if(isprint(buf[i]) || buf[i] == '\t' || buf[i] == '\n'){
                 if(candidato){
                     buf_salida[posicion++] = buf[i];
                     if(posicion == size){
