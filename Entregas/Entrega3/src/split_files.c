@@ -134,21 +134,6 @@ int write_all(int fd, char *buf, int read_total)
     return num_salida;
 }
 
-int split_part(char *buf_entrada, char **buf_salida, int num_files, int num_read, int size_write_file, int fichero)
-{
-    int posicion = 0;
-    for (int j = 0; j < num_read / num_files + 1; j++)
-    {
-        for (int i = 0; posicion < num_read && i < num_files; i++)
-        {
-            buf_salida[fichero][j] = buf_entrada[posicion++];
-            printf("(%d)Fichero f%d \n", j, fichero);
-            fichero = (fichero + 1) % num_files;
-        }
-    }
-    return fichero;
-}
-
 void split(int fdin, int *fdout, char *buf_entrada, int size, int num_files)
 {
     ssize_t num_written = -1, num_read = -1;
@@ -168,6 +153,7 @@ void split(int fdin, int *fdout, char *buf_entrada, int size, int num_files)
         perror("malloc()");
         exit(EXIT_FAILURE);
     }
+
     for (int i = 0; i < num_files; i++)
     {
         num_write[i] = 0;
@@ -185,7 +171,6 @@ void split(int fdin, int *fdout, char *buf_entrada, int size, int num_files)
             buf_salida[fichero][num_write[fichero]] = buf_entrada[i];
             if (++num_write[fichero] == size)
             {
-                printf("IMPRIME %s \n", buf_salida[fichero]);
                 num_written = write_all(fdout[fichero], buf_salida[fichero], size);
                 if (num_written == -1)
                 {
@@ -194,14 +179,12 @@ void split(int fdin, int *fdout, char *buf_entrada, int size, int num_files)
                 }
                 num_write[fichero] = 0;
             }
-            printf("(%d)Fichero f%d \n", i,fichero);
             fichero = (fichero + 1) % num_files;
         }
     }
+
     for (int i = 0; i < num_files; i++)
     {
-        printf("Fichero escrito f%d \n", i);
-        printf("Contenido %s \n", buf_salida[i]);
         num_written = write_all(fdout[i], buf_salida[i], num_write[i]);
         if (num_written == -1)
         {
@@ -210,7 +193,13 @@ void split(int fdin, int *fdout, char *buf_entrada, int size, int num_files)
         }
     }
 
+    for (int i = 0; i < num_files; i++)
+    {
+        free(buf_salida[i]);
+    }
     free(buf_salida);
+    free(num_write);
+
     if (close(fdin) == -1)
     {
         perror("close(fdin)");
