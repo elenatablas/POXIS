@@ -152,12 +152,7 @@ int split_part(char *buf_entrada, char **buf_salida, int num_files, int num_read
 void split(int fdin, int *fdout, char *buf_entrada, int size, int num_files)
 {
     ssize_t num_written = -1, num_read = -1;
-
-    int act_fichero = 0, fichero = 0;
-    int sig_fichero = 0;
-
-    int size_write_file = size / num_files + 1;
-
+    int fichero = 0;
     int *num_write = NULL;
 
     if ((num_write = malloc(num_files * sizeof(int))) == NULL)
@@ -185,12 +180,10 @@ void split(int fdin, int *fdout, char *buf_entrada, int size, int num_files)
 
     while ((num_read = read_all(fdin, buf_entrada, size)) > 0)
     {
-        size_write_file = num_read / num_files + 1;
-        printf("size_write_file = %d \n", size_write_file);
         for (int i = 0; i < num_read; i++)
         {
             buf_salida[fichero][num_write[fichero]] = buf_entrada[i];
-            if (++num_write[fichero] == size-1)
+            if (++num_write[fichero] == size)
             {
                 printf("IMPRIME %s \n", buf_salida[fichero]);
                 num_written = write_all(fdout[fichero], buf_salida[fichero], size);
