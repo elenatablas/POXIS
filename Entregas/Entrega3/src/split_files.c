@@ -134,16 +134,16 @@ int write_all(int fd, char *buf, int read_total)
     return num_salida;
 }
 
-int split_part(char *buf_entrada, char *buf_salida, int num_files, int size_write_file, int fichero)
+int split_part(char *buf_entrada, char **buf_salida, int num_files, int num_read, int size_write_file, int fichero)
 {
     int posicion = 0;
-    char *buffer = buf_salida;
-    for (int j = 0; j < size_write_file; j++)
-        for (int i = 0; i < num_files; i++)
-        {
-            buf_salida[fichero * size_write_file + j] = buf_entrada[posicion++];
+    for (int j = 0; j < num_read/num_files+1; j++){
+        for (int i = 0; posicion < num_read && i < num_files; i++){
+            buf_salida[fichero][j] = buf_entrada[posicion++];
+            printf("(%d)Fichero f%d \n", j, fichero);
             fichero = (fichero + 1) % num_files;
         }
+    }
     return fichero;
 }
 
@@ -151,30 +151,44 @@ void split(int fdin, int *fdout, char *buf_entrada, int size, int num_files)
 {
     ssize_t num_written = -1, num_read = -1;
 
-    int fichero = 0;
+    int act_fichero = 0, fichero = 0;
+    int sig_fichero = 0;
 
     int size_write_file = size / num_files + 1;
 
-    char *buf_salida = NULL;
-
-    if ((buf_salida = (char *)malloc(size * sizeof(char))) == NULL)
+    char **buf_salida = NULL;
+    if ((buf_salida = malloc(num_files * sizeof(int))) == NULL)
     {
-        perror("malloc(buf_salida)");
+        perror("malloc()");
         exit(EXIT_FAILURE);
+    }
+    for (int i = 0; i < num_files; i++)
+    {
+        if ((buf_salida[i] = (char *)malloc(size * sizeof(char))) == NULL)
+        {
+            perror("malloc()");
+            exit(EXIT_FAILURE);
+        }
     }
 
     while ((num_read = read_all(fdin, buf_entrada, size)) > 0)
     {
-        size_write_file = num_read / num_files + 1;
-        fichero = split_part(buf_entrada, buf_salida, num_files, size_write_file, fichero);
-        for (int i = 0; i < num_files; i++)
+        size_write_file = num_read / num_files+1;
+        printf("size_write_file = %d \n", size_write_file);
+        fichero = sig_fichero;
+        sig_fichero = split_part(buf_entrada, buf_salida, num_files, num_read, size_write_file, fichero);
+        for (int i = 0; i < size && i < num_files; i++)
         {
-            num_written = write_all(fdout[i], buf_salida + (i * size_write_file), size_write_file);
+            act_fichero = (fichero+i)%num_files;
+            printf("Fichero escrito f%d \n", act_fichero);
+            printf("Contenido %s \n",buf_salida[act_fichero]);
+            num_written = write_all(fdout[act_fichero], buf_salida[act_fichero], size_write_file);
             if (num_written == -1)
             {
                 perror("write(fdout)");
                 exit(EXIT_FAILURE);
             }
+            
         }
     }
 
