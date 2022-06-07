@@ -148,39 +148,47 @@ void mystrings(int fdin, int fdout, char *buf, int size, int length)
     {
         for (int i = 0; i < num_read; i++)
         {
-            if(isprint(buf[i]) || buf[i] == '\t' || buf[i] == '\n'){
-                if(candidato){
+            if (isprint(buf[i]) || buf[i] == '\t' || buf[i] == '\n')
+            {
+                if (candidato)
+                {
                     buf_salida[posicion++] = buf[i];
-                    if(posicion == size){
+                    if (posicion == size)
+                    {
                         num_written = write_all(fdout, buf_salida, size);
                         if (num_written == -1)
                         {
                             perror("write(fdin)");
                             exit(EXIT_FAILURE);
-                        } 
+                        }
                         posicion = 0;
                     }
                 }
-                else{
+                else
+                {
                     buf_aux[contador++] = buf[i];
-                    if(contador == length){
+                    if (contador == length)
+                    {
                         candidato = true;
-                        for (int j = 0; j < length; j++){
+                        for (int j = 0; j < length; j++)
+                        {
                             buf_salida[posicion++] = buf_aux[j];
-                            if(posicion == size){
+                            if (posicion == size)
+                            {
                                 num_written = write_all(fdout, buf_salida, size);
                                 if (num_written == -1)
                                 {
                                     perror("write(fdin)");
                                     exit(EXIT_FAILURE);
-                                } 
+                                }
                                 posicion = 0;
                             }
                         }
                     }
                 }
             }
-            else{
+            else
+            {
                 candidato = false;
                 contador = 0;
             }

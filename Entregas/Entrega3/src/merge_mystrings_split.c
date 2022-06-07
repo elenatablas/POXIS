@@ -12,18 +12,18 @@
 #define MAX_FILES 16
 
 void primerHijo(int pipeMeMy[2], char *sizeChar, char *argvIn[], int num_files_in);
-void segundoHijo(int pipeMeMy[2], int pipeMySp[2], int size, int length);
+void segundoHijo(int pipeMeMy[2], int pipeMySp[2], char *sizeChar, char *lengthChar);
 void tercerHijo(int pipeMySp[2], char *sizeChar, char *argvOut[], int num_files_out);
 void mensaje_help(char *argv[]);
 void cerrarDescriptor(int descriptor);
 
-// ./merge_mystrings_split [-t BUFSIZE] [-n MINLENGTH] [-i FILEIN1, FILEIN2 ... FILEINn] FILEOUT1 [FILEOUT2 ... FILEOUTn]
+// ./merge_mystrings_split [-t BUFSIZE] [-n MINLENGTH] -i FILEIN1[, FILEIN2 ... FILEINn] FILEOUT1 [FILEOUT2 ... FILEOUTn]
 int main(int argc, char *argv[])
 {
-    int opt, fdout, length = 4, size = 1024;
+    int opt, length = 4, size = 1024, num_files_in = 0, num_files_out = 0;
     char *files = NULL;
     char *sizeChar = NULL;
-    int num_files_in = 0;
+    char *lengthChar = NULL;
     char *argvIn[MAX_FILES];
     char *saveptr;
     char *argvOut[MAX_FILES];
@@ -43,6 +43,7 @@ int main(int argc, char *argv[])
             break;
         case 'n':
             length = atoi(optarg);
+            lengthChar = optarg;
             break;
         case 'i':
             files = optarg;
@@ -65,7 +66,7 @@ int main(int argc, char *argv[])
         mensaje_help(argv);
         exit(EXIT_FAILURE);
     }
-    if(files != NULL)
+    if (files != NULL)
     {
         argvIn[num_files_in] = strtok_r(files, ",", &saveptr);
         while (argvIn[num_files_in] != NULL)
@@ -84,14 +85,15 @@ int main(int argc, char *argv[])
             mensaje_help(argv);
             exit(EXIT_FAILURE);
         }
-    }else
+    }
+    else
     {
         fprintf(stderr, "Error: Deben proporcionarse ficheros de entrada con la opción -i.\n");
         mensaje_help(argv);
         exit(EXIT_FAILURE);
     }
 
-    int num_files_out = argc - optind;
+    num_files_out = argc - optind;
     if (num_files_out >= MAX_FILES)
     {
         fprintf(stderr, "Error: Demasiados ficheros de salida. Máximo 16 ficheros.\n");
@@ -115,7 +117,7 @@ int main(int argc, char *argv[])
         perror("pipe()");
         exit(EXIT_FAILURE);
     }
-    // CREACIÓN PRIMER HIJO (MERGE)
+    // CREACIÓN PRIMER HIJO (merge)
     switch (fork())
     {
     case -1:
@@ -128,7 +130,7 @@ int main(int argc, char *argv[])
     default: /* El proceso padre continúa... */
         break;
     }
-    // CREACIÓN DE LA SEGUNDA TUBERÍA (la creo en este instante para que estos descriptores solo los tengan el padre, el proceso hijo tr y el proceso hijo de wc)
+    // CREACIÓN DE LA SEGUNDA TUBERÍA (la creo en este instante para que estos descriptores solo los tengan el padre, el proceso hijo mystrings y el proceso hijo split)
     if (pipe(pipeMySp) == -1)
     {
         perror("pipe()");
@@ -142,13 +144,13 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
         break;
     case 0:
-        segundoHijo(pipeMeMy, pipeMySp, size, length);
+        segundoHijo(pipeMeMy, pipeMySp, sizeChar, lengthChar);
         break;
     default: // El proceso padre continúa...
         break;
     }
 
-    // EL PROCESO PADRE CIERRA LOS DESCRIPTORES DE FICHERO DE LA PRIMERA TUBERÍA (los cierro en este instante para que no los herede el hijo wc puesto que no los necesita)
+    // EL PROCESO PADRE CIERRA LOS DESCRIPTORES DE FICHERO DE LA PRIMERA TUBERÍA (los cierro en este instante para que no los herede el hijo split puesto que no los necesita)
     cerrarDescriptor(pipeMeMy[0]);
     cerrarDescriptor(pipeMeMy[1]);
 
@@ -204,6 +206,8 @@ void cerrarDescriptor(int descriptor)
 
 void primerHijo(int pipeMeMy[2], char *sizeChar, char *argvIn[], int num_files_in)
 {
+    char *argvMerge[num_files_in + 4];
+    int num = 0;
     /* Paso 2: El extremo de lectura no se usa */
     cerrarDescriptor(pipeMeMy[0]);
     /* Paso 3: Redirige la salida estándar al extremo de escritura de la tubería */
@@ -215,9 +219,7 @@ void primerHijo(int pipeMeMy[2], char *sizeChar, char *argvIn[], int num_files_i
     /* Paso 4: Cierra descriptor duplicado */
     cerrarDescriptor(pipeMeMy[1]);
     /* Paso 5: Reemplaza el binario actual por el de `merge_files` */
-    char *argvMerge[num_files_in + 4];
-    
-    int num = 0;
+
     argvMerge[num++] = "merge_files";
 
     if (sizeChar != NULL)
@@ -229,16 +231,17 @@ void primerHijo(int pipeMeMy[2], char *sizeChar, char *argvIn[], int num_files_i
     for (size_t i = 0; i < num_files_in; i++)
     {
         argvMerge[i + num] = argvIn[i];
-        fprintf(stderr,"argvMerge(): %s\n",argvMerge[i + num]);
     }
     argvMerge[num_files_in + num] = NULL;
-    execvp("./merge_files", argvMerge);
+    execv("./merge_files", argvMerge);
     perror("execvp(merge_files)");
     exit(EXIT_FAILURE);
 }
 
-void segundoHijo(int pipeMeMy[2], int pipeMySp[2], int size, int length)
+void segundoHijo(int pipeMeMy[2], int pipeMySp[2], char *sizeChar, char *lengthChar)
 {
+    char *argvMyStrings[6];
+    int num = 0;
     /* Paso 7: El extremo de escritura no se usa */
     cerrarDescriptor(pipeMeMy[1]);
     /* Paso 8: Redirige la entrada estándar al extremo de lectura de la tubería */
@@ -257,14 +260,30 @@ void segundoHijo(int pipeMeMy[2], int pipeMySp[2], int size, int length)
         exit(EXIT_FAILURE);
     }
     cerrarDescriptor(pipeMySp[1]);
+
     /* Paso 11: Reemplaza el binario actual por el de `mystrings` */
-    execlp("./mystrings", "mystrings", "-t", size, "-n", length, NULL);
-    //perror("execlp(mystrings)");
+    argvMyStrings[num++] = "mystrings";
+    if (sizeChar != NULL)
+    {
+        argvMyStrings[num++] = "-t";
+        argvMyStrings[num++] = sizeChar;
+    }
+    if (lengthChar != NULL)
+    {
+        argvMyStrings[num++] = "-n";
+        argvMyStrings[num++] = lengthChar;
+    }
+    argvMyStrings[num] = NULL;
+    execv("./mystrings", argvMyStrings);
+    perror("execv(mystrings)");
     exit(EXIT_FAILURE);
 }
 
 void tercerHijo(int pipeMySp[2], char *sizeChar, char *argvOut[], int num_files_out)
 {
+    char *argvSplit[num_files_out + 4];
+    int num = 0;
+
     /* Paso 13: El extremo de escritura no se usa */
     cerrarDescriptor(pipeMySp[1]);
     /* Paso 14: Redirige la entrada estándar al extremo de lectura de la tubería */
@@ -275,10 +294,8 @@ void tercerHijo(int pipeMySp[2], char *sizeChar, char *argvOut[], int num_files_
     }
     /* Paso 15: El extremo de escritura no se usa */
     cerrarDescriptor(pipeMySp[0]);
-    /* Paso 16: Reemplaza el binario actual por el de `split_files` */
 
-    char *argvSplit[num_files_out + 4];
-    int num = 0;
+    /* Paso 16: Reemplaza el binario actual por el de `split_files` */
     argvSplit[num++] = "split_files";
 
     if (sizeChar != NULL)
@@ -290,11 +307,10 @@ void tercerHijo(int pipeMySp[2], char *sizeChar, char *argvOut[], int num_files_
     for (size_t i = 0; i < num_files_out; i++)
     {
         argvSplit[i + num] = argvOut[i];
-        fprintf(stderr,"argvSplit(): %s\n",argvSplit[i + num]);
     }
     argvSplit[num_files_out + num] = NULL;
 
-    execvp("./split_files", argvSplit);
+    execv("./split_files", argvSplit);
     perror("execvp(split_files)");
     exit(EXIT_FAILURE);
 }

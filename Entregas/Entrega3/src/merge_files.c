@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
     int num_files = argc - optind;
     if (num_files >= MAX_FILES)
     {
-        fprintf(stderr, "Error: Demasiados ficheros de entrada. Máximo 16 ficheros.\n"); 
+        fprintf(stderr, "Error: Demasiados ficheros de entrada. Máximo 16 ficheros.\n");
         mensaje_help(argv);
         exit(EXIT_FAILURE);
     }
@@ -73,12 +73,12 @@ int main(int argc, char *argv[])
         }
         for (int i = 0; i < num_files; i++)
         {
-            fdin[i] = open(argv[i+optind], O_RDONLY);
+            fdin[i] = open(argv[i + optind], O_RDONLY);
             if (fdin[i] == -1)
             {
-                fprintf(stderr,"Error: El fichero '%s' no existe o no tiene permisos de lectura.\n",argv[i+optind]);
+                fprintf(stderr, "Error: El fichero '%s' no existe o no tiene permisos de lectura.\n", argv[i + optind]);
                 error_files++;
-            }  
+            }
         }
         merge(fdin, fdout, buf, size, num_files, error_files);
     }
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
         mensaje_help(argv);
         exit(EXIT_FAILURE);
     }
-        
+
     if (close(fdout) == -1)
     {
         perror("close(fdout)");
@@ -105,48 +105,51 @@ void mensaje_help(char *argv[])
     fprintf(stderr, "Uso: %s [-t BUFSIZE] [-o FILEOUT] FILEIN1 [FILEIN2 ... FILEINn]\n", argv[0]);
     fprintf(stderr, "No admite lectura de la entrada estandar.\n");
     fprintf(stderr, "-t BUFSIZE Tamaño de buffer donde 1 <= BUFSIZE <= 128MB.\n");
-    fprintf(stderr, "-o FILEOUT Usa FILEOUT en lugar de la salida estandar.\n");     
+    fprintf(stderr, "-o FILEOUT Usa FILEOUT en lugar de la salida estandar.\n");
 }
 
 void merge_part(char *buf, int read_files, int *num_read, int size_read_file, char *buf_salida)
 {
     int posicion = 0;
     int *num = num_read;
-    char * buffer = buf_salida;
-    for(int j = 0; j < size_read_file; j++)
-        for (int i = 0; i < read_files; i++){
-            if(num[i] != 0)
+    char *buffer = buf_salida;
+    for (int j = 0; j < size_read_file; j++)
+        for (int i = 0; i < read_files; i++)
+        {
+            if (num[i] != 0)
             {
                 num[i]--;
-                buffer[posicion++] = buf[i*size_read_file+j];
+                buffer[posicion++] = buf[i * size_read_file + j];
             }
         }
 }
 
-int read_all(int fd, char *buf, int size_read){
-/* Lecturas parciales tratadas */
+int read_all(int fd, char *buf, int size_read)
+{
+    /* Lecturas parciales tratadas */
     ssize_t num_read;
     ssize_t num_entrada = size_read;
-    char * buf_entrada = buf;
+    char *buf_entrada = buf;
 
     while (num_entrada > 0 && (num_read = read(fd, buf_entrada, num_entrada)) > 0)
     {
         buf_entrada += num_read;
         num_entrada -= num_read;
     }
-     if (num_read == -1)
+    if (num_read == -1)
     {
         perror("read(fdin)");
         exit(EXIT_FAILURE);
     }
-    return size_read-num_entrada;
+    return size_read - num_entrada;
 }
 
-int write_all(int fd, char *buf, int read_total){
-/* Escrituras parciales tratadas */
+int write_all(int fd, char *buf, int read_total)
+{
+    /* Escrituras parciales tratadas */
     ssize_t num_written;
     ssize_t num_salida = read_total;
-    char * buf_salida = buf;
+    char *buf_salida = buf;
 
     while (num_salida > 0 && (num_written = write(fd, buf_salida, num_salida)) != -1)
     {
@@ -161,17 +164,15 @@ int write_all(int fd, char *buf, int read_total){
     return num_salida;
 }
 
-
-
 void merge(int *fdin, int fdout, char *buf_entrada, int size, int num_files, int error_files)
 {
     ssize_t num_written = -1;
     int read_total, read_files, size_read_file;
-    int unread_files = num_files-error_files;
+    int unread_files = num_files - error_files;
 
-    int * num_read = NULL;
-    char * buf_salida = NULL;
-    
+    int *num_read = NULL;
+    char *buf_salida = NULL;
+
     if ((num_read = malloc(unread_files * sizeof(int))) == NULL)
     {
         perror("malloc()");
@@ -183,16 +184,16 @@ void merge(int *fdin, int fdout, char *buf_entrada, int size, int num_files, int
         perror("malloc()");
         exit(EXIT_FAILURE);
     }
-    while(unread_files != 0)
+    while (unread_files != 0)
     {
         read_total = 0;
         read_files = 0;
-        size_read_file = size/unread_files+1;
+        size_read_file = size / unread_files + 1;
         for (int i = 0; i < num_files; i++)
         {
-            if(fdin[i] != -1)
+            if (fdin[i] != -1)
             {
-                if ((num_read[read_files] = read_all(fdin[i], buf_entrada+(read_files*size_read_file), size_read_file)) > 0)
+                if ((num_read[read_files] = read_all(fdin[i], buf_entrada + (read_files * size_read_file), size_read_file)) > 0)
                 {
                     read_total += num_read[read_files];
                     read_files++;
@@ -210,9 +211,9 @@ void merge(int *fdin, int fdout, char *buf_entrada, int size, int num_files, int
                         perror("close(fdin)");
                         exit(EXIT_FAILURE);
                     }
-                    fdin[i]= -1;
+                    fdin[i] = -1;
                 }
-            } 
+            }
         }
         merge_part(buf_entrada, read_files, num_read, size_read_file, buf_salida);
         num_written = write_all(fdout, buf_salida, read_total);
@@ -220,7 +221,7 @@ void merge(int *fdin, int fdout, char *buf_entrada, int size, int num_files, int
         {
             perror("write(fdin)");
             exit(EXIT_FAILURE);
-        } 
+        }
     }
     free(buf_salida);
     free(num_read);
